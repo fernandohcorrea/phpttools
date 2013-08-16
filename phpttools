@@ -1,0 +1,25 @@
+#!/usr/local/bin/php
+<?php
+$path = realpath(dirname(__FILE__));
+chdir($path);
+require_once 'Console/Bootstrap.php';
+
+\Console\Bootstrap::bootStart(
+        array($path)
+);
+
+try {
+    $exitStatus = Console\Console::iniciar(basename(__FILE__), $argv );
+    exit($exitStatus);
+} catch (\Exception $e) {
+    echo $e->getMessage() . "\n";
+    echo $e->getFile() . "\n";
+    echo $e->getLine() . "\n";
+    echo str_repeat('=', 100) . "\n";
+    echo $e->getTraceAsString() . "\n";
+//    } else {
+//        Console\Main::sysErrNl("Saida de procedimento: ", ShareSvn_TermColors::FG_RED);
+//        Console\Main::sysErrNl("\t{$e->getMessage()}");
+//    }
+    exit(1);
+}

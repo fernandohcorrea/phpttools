@@ -1,15 +1,14 @@
 <?php
-/**
- * Pacote de Console Script
- * 
- * @package \Console\Script
- */
 namespace Console\Script;
 
 /**
  * Classe Base para ScriptClasses
- * Pré-Codifica alguns método para auxiliar na construção de uma ScriptTool.
+ * Pre-Codifica alguns método para auxiliar na construção de uma ScriptTool.
  * 
+ * @author Fernando H Corrêa fernandohcorrea(TO)gmail.com
+ * @version 1.0
+ * @license http://creativecommons.org/licenses/GPL/2.0/legalcode.pt
+ * @package \Console\Script
  * @abstract
  */
 abstract class Base
@@ -50,5 +49,5 @@ abstract class Base
         $retorno = trim($resposta);
         return $retorno;
     }
-
+    
 }

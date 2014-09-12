@@ -13,13 +13,4 @@ interface Schema
      */
     public function __construct();
 
-    /**
-     * Obter o help de descrição da ScriptTools.
-     * 
-     * @return string
-     */
-    public static function getHelp();
-
-    
-    
 }

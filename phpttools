@@ -12,14 +12,21 @@ try {
     $exitStatus = Console\Console::iniciar(basename(__FILE__), $argv );
     exit($exitStatus);
 } catch (\Exception $e) {
-    echo $e->getMessage() . "\n";
-    echo $e->getFile() . "\n";
-    echo $e->getLine() . "\n";
-    echo str_repeat('=', 100) . "\n";
-    echo $e->getTraceAsString() . "\n";
-//    } else {
-//        Console\Main::sysErrNl("Saida de procedimento: ", ShareSvn_TermColors::FG_RED);
-//        Console\Main::sysErrNl("\t{$e->getMessage()}");
-//    }
+    $tab = \Console\Config::get('tt_tab');
+    $debug = \Console\Config::get('tt_debug');
+    $msg = \Console\Color::strColor("Saida de procedimento: ", \Console\Color::FG_LIGHT_RED);
+    \Console\Out::sysOutNl($msg);
+    if($debug){
+        echo "Message: " . $e->getMessage() . PHP_EOL;
+        echo "File   : " . $e->getFile() . PHP_EOL;
+        echo "Line   : " . $e->getLine() . PHP_EOL;
+        echo str_repeat('=', 100) . "\n";
+        echo "Message:" . PHP_EOL;
+        echo $e->getTraceAsString() . PHP_EOL;
+    } else {
+        \Console\Out::sysErrNl($tab. $e->getMessage());
+    }
+    
+    
     exit(1);
 }

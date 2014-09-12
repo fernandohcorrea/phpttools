@@ -2,6 +2,14 @@
 
 namespace Console;
 
+/**
+ * Classe de Principais interações do Console
+ * 
+ * @author Fernando H Corrêa fernandohcorrea(TO)gmail.com
+ * @version 1.0
+ * @license http://creativecommons.org/licenses/GPL/2.0/legalcode.pt
+ * @package \Console
+ */
 class Console {
 
     /**
@@ -31,6 +39,26 @@ class Console {
      * @var Array
      */
     protected static $scriptsTools = Array();
+    
+    /**
+     * Vetor com Help de procesimento e scripts
+     * @var array
+     */
+    protected static $helpStorage = array();
+    
+    /**
+     * Vetor de tipo de dados suportados
+     * 
+     * @var array
+     */
+    private static $arrayDataTaypes = array(
+        'string',
+        'bool',
+        'boolean',
+        'int',
+        'integer',
+        'array'
+    );
 
     /**
      * Construtor
@@ -120,7 +148,6 @@ class Console {
                 self::$scriptsTools[$keyClasse] = $classeNome;
             }
         }
-
         if (empty(self::$scriptsTools)) {
             throw new \Exception('Não foram encotradas classes de TTScripts compativeis.');
         }
@@ -177,8 +204,135 @@ class Console {
         }
     }
     
-    private static function getHelpToStorage(\ReflectionClass $class){
+    private static function getHelpToStorage(\ReflectionClass $class, $keyClasse)
+    {
+        $array_help = array();
+        $array_help = array_merge($array_help, self::getHeadHelp($class));
+        $array_help = array_merge($array_help, self::getStartScriptToolHelp($class));
         
+        self::$helpStorage[$keyClasse] = $array_help;
+    }
+    
+    private static function getHeadHelp(\ReflectionClass $class)
+    {
+        $array_head_help = array();
+        $docComment = $class->getDocComment();
+        $docComment = self::trataStrHelp($docComment);
+        $array_doc_lines = explode(PHP_EOL, $docComment);
+        foreach ($array_doc_lines as $key => $line) {
+
+            if(preg_match('/^(\/\*\*)|(\*\/)$/', $line)){
+                continue;
+            }
+            
+            $line = preg_replace('/^( \*)/', '', $line, 1);
+            $line = trim($line);
+            
+            if(empty($line)){
+                continue;
+            }
+            
+            $match = array();
+            if(preg_match('/^@(?P<key>\w+) (?P<value>.*)/i', $line,$match)){
+                $array_head_help['extras'][$match['key']] = $match['value'];
+                continue;
+            }
+            
+            $array_head_help['help'][] = $line;
+            
+        }
+        return $array_head_help;
+    }
+    
+    private static function getStartScriptToolHelp(\ReflectionClass $class)
+    {
+        $array_start_help = array();
+        $methodStartScriptTool = $class->getMethod('startScriptTool');
+        
+        //
+        //Params
+        //
+        $array_method_params = $methodStartScriptTool->getParameters();
+        foreach ($array_method_params as $reflectionParam){
+            $name_param = $reflectionParam->getName();
+            
+            
+            $array_start_help['startScriptTool']['params'][$name_param] = array(
+                'position' => $reflectionParam->getPosition(),
+                'is_optional' => $reflectionParam->isOptional()
+            );
+            
+            if($reflectionParam->isOptional()){
+                $array_start_help['startScriptTool']['params'][$name_param]['default'] = $reflectionParam->getDefaultValue();
+            }
+        }
+        
+        //
+        // Docs
+        //
+        $docComment = $methodStartScriptTool->getDocComment();
+        $docComment = self::trataStrHelp($docComment);
+        $array_doc_lines = explode(PHP_EOL, $docComment);
+        foreach ($array_doc_lines as $key => $line) {
+            
+            $line = trim($line);
+            
+            if(preg_match('/^(\/\*\*)|(\*\/)$/', $line)){
+                continue;
+            }
+            
+            $line = preg_replace('/^(\*)/', '', $line, 1);
+            $line = trim($line);
+            
+            if(empty($line)){
+                continue;
+            }
+            
+            $match = array();
+            if(preg_match('/^@(?P<key>param)( ){1,}(\\\){0,}(?P<type>\w+)( ){1,}\$(?P<param>\w+)( ){1,}(?P<desc>.*)/i', $line,$match)){
+                
+                $type =strtolower($match['type']);
+                
+                if(!in_array($type, self::$arrayDataTaypes)){
+                    throw new \Exception(
+                        sprintf('O Parametro %s::%s(%s) possui um tipo(%s) inválido.', $class->getName(), $methodStartScriptTool->getName(), $match['param'], $match['type'])
+                    );
+                }
+
+                if(isset($array_start_help['startScriptTool']['params'][$match['param']])){
+                    $array_start_help['startScriptTool']['params'][$match['param']] = array_merge(
+                        $array_start_help['startScriptTool']['params'][$match['param']],
+                        array(
+                            'type' => $type,
+                            'desc' => $match['desc']
+                        )
+                    );
+                }
+                continue;
+            }
+            
+            $match = array();
+            if(preg_match('/^@(?P<key>\w+) (?P<value>.*)/i', $line,$match)){
+                $array_start_help['startScriptTool']['extras'][$match['key']] = $match['value'];
+                continue;
+            }
+            
+            $array_start_help['startScriptTool']['help'][] = $line;
+        }
+        
+        //
+        // Check required param
+        //
+        if(isset($array_start_help['startScriptTool']['params']) && count($array_start_help['startScriptTool']['params'])){
+            foreach ($array_start_help['startScriptTool']['params'] as $param => $data) {
+                if($data['is_optional'] === FALSE && (!isset($data['type']) || !isset($data['desc'])) ){
+                    throw new \Exception(
+                        sprintf('O Parametro %s::%s(%s) é obrigatório, mas não está com documentação.', $class->getName(), $methodStartScriptTool->getName(), $param)
+                    );
+                }
+            }
+        }
+        return $array_start_help;
     }
 
     private static function iniciaProcessamento($argv = array()) {
@@ -202,9 +356,7 @@ class Console {
                 default:
                     if (is_null($keyClasse) && in_array($param, array_keys(self::$scriptsTools))) {
                         $keyClasse = $param;
-                    } elseif (!in_array($param, array_keys(self::$scriptsSvn))) {
-                        $flgHelp = TRUE;
-                    }
+                    } 
                     break;
             }
         }
@@ -212,11 +364,9 @@ class Console {
         if ($flgHelp) {
             return self::getHelp($keyClasse);
         } elseif ($keyClasse) {
-            $nomeClasse = self::$scriptsTools[$keyClasse];
-            $scriptObj = new $nomeClasse();
-            return $scriptObj->startScript();
+            return self::runScriptTool($keyClasse, $argv);
         } else {
-            throw new Exception('Erro ao processar parametros.');
+            throw new \Exception('Erro ao processar parametros.');
         }
     }
 
@@ -228,32 +378,200 @@ class Console {
      */
     private static function getHelp($keyClasse = NULL) {
         $startFile = self::$startFile;
-        $helpTexto = strtoupper($startFile) . ": " . \Console\Config::get('tt_about') . "\n" .
-                "    Uso: $startFile <procedimento> [< help | --help | /? >]  \n\n";
+        $tab = \Console\Config::get('tt_tab');
+        
+        $helpTexto = array();
+        
+        $helpTexto[] = sprintf("%s: %s", strtoupper($startFile), \Console\Config::get('tt_about'));
+        $helpTexto[] = $tab . "Uso: $startFile <procedimento> [< help | --help | /? >]";
+        $helpTexto[] = '';
+        
+        
         if (is_null($keyClasse)) {
             if (!empty(self::$scriptsTools)) {
-                $helpTexto .= \Console\Color::strColor("    Lista de <procedimentos>: \n\n", \Console\Color::FG_WHITE);
+                $helpTexto[] = \Console\Color::strColor(
+                    $tab . "Lista de <procedimentos> :", \Console\Color::FG_WHITE
+                );
             }
-
-            foreach (self::$scriptsTools as $keyClasse => $nomeClasse) {
-                $help = call_user_func(array($nomeClasse, 'getHelp'));
-
-                $helpTexto .= \Console\Color::strColor("     $keyClasse :   \n        ", \Console\Color::FG_WHITE);
-                $helpTexto .= self::trataStrHelp($help) . "\n\n";
+            
+            $helpTexto[] = '';
+            
+            foreach (self::$scriptsTools as $keyClasse => $classe) {
+                self::buildHelp($keyClasse, $helpTexto);
             }
+            $helpTexto[] = '';
         } else {
             if (in_array($keyClasse, array_keys(self::$scriptsTools))) {
-                $nomeClasse = self::$scriptsTools[$keyClasse];
-
-                $help = call_user_func(array($nomeClasse, 'getHelp'));
-
-                $helpTexto .= \Console\Color::strColor("    $keyClasse:   \n        ", \Console\Color::FG_WHITE);
-                $helpTexto .= self::trataStrHelp($help) . "\n";
+                self::buildHelp($keyClasse, $helpTexto);
             }
         }
 
-        \Console\Out::sysOutNl($helpTexto);
+        \Console\Out::sysOutNl(implode(PHP_EOL, $helpTexto));
         return 0;
+    }
+    
+    private static function buildHelp($keyClasse, &$helpTexto)
+    {
+        $tab = \Console\Config::get('tt_tab');
+        $helpClass = self::$helpStorage[$keyClasse];
+
+        $helpTexto[] = \Console\Color::strColor(
+            $tab . $tab . "$keyClasse :", \Console\Color::FG_WHITE
+        );
+
+        if(count($helpClass['help'])){
+            foreach ($helpClass['help'] as $line){
+                $helpTexto[] = str_repeat($tab, 3) . $line;
+            }
+            $helpTexto[] = '';
+        }
+
+        if(isset($helpClass['startScriptTool']['params']) && count($helpClass['startScriptTool']['params'])){
+            foreach ($helpClass['startScriptTool']['params'] as $param => $data) {
+
+                $type = '';
+                $default = (isset($data['default'])) ? $data['default'] : '';
+
+                switch ($data['type']) {
+                    case 'string':
+                        $type="='{$data['type']}'";
+                    break;
+
+                    case 'array':
+                        $type="='param,param ...'";
+                        if(is_array($default)){
+                            array_map('trim', $default);
+                            $default = implode(',', $default);
+                        }
+                    break;
+
+                    case 'boolean':
+                        $type="=<TRUE|FALSE>";
+                        $default=($default)?'TRUE':'FALSE';
+                    break;
+
+                    case 'int':
+                    case 'integer':
+                        $type="=[0-9]";
+                    break;
+
+                    default:
+                        $type="";
+                    break;
+                }
+
+                if(!empty($default)){
+                    $default = 'Padrão: '. $default;
+                }
+
+                $helpTexto[] = sprintf(
+                    "%s--%s%s %s",
+                    str_repeat($tab, 4),
+                    $param,
+                    $type,
+                    $default
+                );
+                $helpTexto[] = str_repeat($tab, 5) . $data['desc'];
+            }
+        }
+        $helpTexto[] = '';
+    }
+    
+    private static function runScriptTool($keyClasse, $argv=array())
+    {
+        $scriptTool = self::$scriptsTools[$keyClasse];
+        $reflectionClass = new \ReflectionClass($scriptTool);
+        $objClass = $reflectionClass->newInstance();
+        $methodStartScriptTool = $reflectionClass->getMethod('startScriptTool');
+        
+        $array_params = self::parseParams($keyClasse, $argv);
+        
+        return $methodStartScriptTool->invokeArgs($objClass, $array_params);
+    }
+
+    private static function parseParams($keyClasse, $argv=array())
+    {
+        $helpClass = self::$helpStorage[$keyClasse];
+        $array_class_params = $helpClass['startScriptTool']['params'];
+        
+        $array_params = array();
+        $array_check_params = array();
+        foreach ($argv as $param) {
+            $match = array();
+            if( preg_match('/^(?P<arg>--(?P<key>\w+))=(?P<value>.*)$/', $param, $match) ){
+                
+                $arg = $match['arg'];
+                $key = $match['key'];
+                $value = $match['value'];
+                
+                if(array_key_exists($key, $array_class_params)){
+                    $array_param_data = $array_class_params[$key];
+                    
+                    $msg_exception = sprintf('O argumento %s não parece ser do tipo %s.', $arg, $array_param_data['type']);
+                    switch ($array_param_data['type']) {
+                        
+                        case 'string':
+                            if(!is_string($value)){
+                                throw new \Exception($msg_exception);
+                            }
+                        break;
+                        
+                        case 'int':
+                        case 'integer':
+                            if(!is_numeric($value)){
+                                throw new \Exception($msg_exception);
+                            }
+                        break;
+                        
+                        case 'bool':
+                        case 'boolean':
+                            $value = strtoupper($value);
+                            if(!in_array($value, array('TRUE','FALSE','0','1'))){
+                                throw new \Exception($msg_exception);
+                            }
+                            
+                            if($value === 'TRUE' || $value == '1'){
+                                $value = TRUE;
+                            } else if($value === 'FALSE' || $value == '0') {
+                                $value = FALSE;
+                            } else {
+                                $value = FALSE;
+                            }
+                        break;
+
+                        case 'array':
+                            if(!is_string($value)){
+                                throw new \Exception($msg_exception);
+                            }
+                            
+                            $array_data = explode(',', $value);
+                            
+                            if(!is_array($array_data)){
+                                throw new \Exception($msg_exception);
+                            }
+                            $value = $array_data;
+                        break;
+
+                    }
+                    
+                    $array_params[$array_param_data['position']] = $value;
+                    $array_check_params[$key] = true;
+                }
+            }
+        }
+        
+        foreach ($array_class_params as $key => $data_param) {
+            if( !$data_param['is_optional'] && !isset($array_check_params[$key])){
+                throw new \Exception(
+                    sprintf("O parametro '%s' obrigatório não foi definido." , $key)
+                );
+            } else if($data_param['is_optional'] && !isset($array_check_params[$key])){
+                $array_params[$data_param['position']] = $data_param['default'];
+            }
+        }
+        
+        ksort($array_params);
+        return $array_params;
     }
 
     /**
@@ -269,7 +587,6 @@ class Console {
             "\t" => ' '
         );
         $str = strtr($str, $tr);
-        $str = preg_replace('/\n{1,}/', "\n        ", $str);
         $str = strip_tags($str);
         $str = trim($str);
 

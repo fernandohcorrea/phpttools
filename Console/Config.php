@@ -2,6 +2,14 @@
 
 namespace Console;
 
+/**
+ * Configuration manager
+ * Load INI files and parse it.
+ * 
+ * @author Fernando H Corrêa fernandohcorrea(TO)gmail.com
+ * @version 1.0
+ * @license http://creativecommons.org/licenses/GPL/2.0/legalcode.pt
+ */
 class Config {
 
     private static $instance;

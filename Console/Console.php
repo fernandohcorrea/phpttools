@@ -492,7 +492,7 @@ class Console {
     private static function parseParams($keyClasse, $argv=array())
     {
         $helpClass = self::$helpStorage[$keyClasse];
-        $array_class_params = $helpClass['startScriptTool']['params'];
+        $array_class_params = (isset($helpClass['startScriptTool']['params'])) ? $helpClass['startScriptTool']['params'] : array(); 
         
         $array_params = array();
         $array_check_params = array();

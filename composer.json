@@ -1,0 +1,12 @@
+{
+    "name": "fernandohcorrea/phpttools",
+    "description": "PHPTTools is a toolbox management builded in PHP for Linux console",
+    "license": "GPL3",
+    "authors": [
+        {
+            "name": "Fernando H. Corrêa",
+            "email": "fernandohcorrea@gmail.com"
+        }
+   ],
+    "minimum-stability": "stable"
+}
